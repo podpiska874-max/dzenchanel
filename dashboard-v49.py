@@ -2057,12 +2057,8 @@ with tab_cat:
                     if st.button(cmp_icon, key=f"btn_cmp_{row['db_id']}", use_container_width=True, help=cmp_title):
                         if is_cmp: 
                             st.session_state["compare_list"].remove(row["db_id"])
-                            if "multiselect_compare_main" in st.session_state and row["channel_name"] in st.session_state["multiselect_compare_main"]:
-                                st.session_state["multiselect_compare_main"].remove(row["channel_name"])
                         else: 
                             st.session_state["compare_list"].add(row["db_id"])
-                            if "multiselect_compare_main" in st.session_state and row["channel_name"] not in st.session_state["multiselect_compare_main"]:
-                                st.session_state["multiselect_compare_main"].append(row["channel_name"])
                         st.rerun()
 
         # Нижняя Навигация (Пагинация)
