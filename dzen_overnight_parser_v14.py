@@ -9,6 +9,7 @@ import urllib.request
 from typing import Dict, List, Optional, Set
 from concurrent.futures import ThreadPoolExecutor
 import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 
 logging.basicConfig(
@@ -180,7 +181,7 @@ class DzenHybridParserV14:
     def __init__(self, max_workers: int = 10, batch_size: int = 50):
         self.max_workers = max_workers
         self.batch_size = batch_size
-        self.session = requests.Session()
+        self.session = cloudscraper.create_scraper(browser={"browser": "chrome", "platform": "windows", "desktop": True})
         self.session.headers.update(CHROME_HEADERS)
         self.init_database()
 
@@ -227,18 +228,11 @@ class DzenHybridParserV14:
         try:
             resp = self.session.get(url, timeout=15)
             if resp.status_code == 200:
-                return resp.content.decode('utf-8', errors='ignore')
+                return resp.text
             else:
                 logging.warning(f"⚠️ Status {resp.status_code} for {url}")
         except Exception as e:
-            logging.warning(f"⚠️ requests failed for {url}: {e}")
-            
-        try:
-            req = urllib.request.Request(url, headers=CHROME_HEADERS)
-            with urllib.request.urlopen(req, timeout=15) as response:
-                return response.read().decode('utf-8', errors='ignore')
-        except Exception as e:
-            logging.warning(f"⚠️ urllib failed for {url}: {e}")
+            logging.warning(f"⚠️ scraper failed for {url}: {e}")
             
         return ""
 
