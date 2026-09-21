@@ -299,19 +299,19 @@ class DzenHybridParserV14:
             niche = extract_niche(soup, text)
             
             # Extract Subscribers
-            subs_match = re.search(r"👥\s*Подписчики\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
+            subs_match = re.search(r"(?:👥\s*)?Подписчики\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
             subs_val = parse_num_suffix(subs_match.group(1)) if subs_match else 0
             
             # Extract Views 30d
-            views_match = re.search(r"👁️\s*Просмотры\s*\\(30д\\)\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
+            views_match = re.search(r"(?:👁️\s*)?Просмотры\s*(?:\(30д\))?\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
             views_val = parse_num_suffix(views_match.group(1)) if views_match else 0
             
             # Extract ER
-            er_match = re.search(r"💬\s*ER\s*([\d\.,]+)%", text, re.I)
+            er_match = re.search(r"(?:💬\s*)?ER\s*([\d\.,]+)%", text, re.I)
             er_val = float(er_match.group(1).replace(",", ".")) if er_match else 0.0
             
             # Extract Viral Index
-            vi_match = re.search(r"⚡\s*Виральность\s*([\d\.,]+)", text, re.I)
+            vi_match = re.search(r"(?:⚡\s*)?Виральность\s*([\d\.,]+)", text, re.I)
             vi_val = float(vi_match.group(1).replace(",", ".")) if vi_match else round(views_val / max(subs_val, 1), 2)
             
             # Extract Contacts
