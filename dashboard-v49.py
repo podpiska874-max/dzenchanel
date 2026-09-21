@@ -340,6 +340,12 @@ def ensure_schema_migrations(conn):
         except Exception:
             pass
 
+    if "median_post_reach" not in existing_stats_cols:
+        try:
+            cursor.execute("ALTER TABLE channel_daily_stats ADD COLUMN median_post_reach INTEGER DEFAULT 0")
+        except Exception:
+            pass
+
     try:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_stats_channel_id ON channel_daily_stats(channel_id, id DESC);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_niche ON channels(niche_id);")
@@ -403,7 +409,8 @@ def load_data():
         s.avg_viral_index,
         s.growth_velocity_daily,
         COALESCE(s.subscribers_growth_30d, 0) AS subscribers_growth_30d,
-        COALESCE(s.readability_percent, 85.0) AS readability_percent
+        COALESCE(s.readability_percent, 85.0) AS readability_percent,
+        COALESCE(s.median_post_reach, 0) AS median_post_reach
     FROM channels c
     LEFT JOIN niches n ON c.niche_id = n.id
     LEFT JOIN max_stats ms ON ms.channel_id = c.id
@@ -1490,7 +1497,9 @@ if app_mode == "✍️ Личный кабинет Автора канала":
 
 ПОКАЗАТЕЛИ КАНАЛА:
 - Подписчики: {my_channel.get('subscribers_count', 0):,} чел.
+- Прирост (30д): {my_channel.get('subscribers_growth_30d', 0):,}
 - Просмотры (30д): {my_channel.get('views_30d', 0):,}
+- Охват поста (медиана): {my_channel.get('median_post_reach', 0):,}
 - Коэффициент виральности (Viral Index): {vi_val:.2f}
 - Вовлеченность (ER): {my_channel.get('er_percent', 0):.1f}%
 
@@ -2037,7 +2046,9 @@ with tab_cat:
                     </div>
                     <div style="display: flex; justify-content: space-between; background: #0d1117; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem;">
                         <div title="Подписчики канала">👥 Subs: <b>{fmt_num(row['subscribers_count'])}</b></div>
+                        <div title="Прирост подписчиков (30д)">📈 +<b>{fmt_num(row['subscribers_growth_30d'])}</b></div>
                         <div title="30-дневный охват">👁️ Views: <b>{fmt_num(row['views_30d'])}</b></div>
+                        <div title="Медианный охват поста">🎯 Med Reach: <b>{fmt_num(row['median_post_reach'])}</b></div>
                         <div title="Вовлеченность аудитории ER">💬 ER: <b>{row['er_percent']:.1f}%</b></div>
                     </div>
                 </div>
