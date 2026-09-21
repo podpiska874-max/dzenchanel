@@ -296,21 +296,21 @@ class DzenHybridParserV14:
             text = raw_text.replace('\u202f', ' ').replace('\xa0', ' ')
             
             # Extract Subscribers
-            subs_match = re.search(r"(?:👥\s*)?Подписчики\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
+            subs_match = re.search(r"([\d\s]+)\s*подписчиков", text, re.I)
             if not subs_match:
-                subs_match = re.search(r"([\d\s]+)\s*подписчиков", text, re.I)
+                subs_match = re.search(r"(?:👥\s*)?Подписчики\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
             subs_val = parse_num_suffix(subs_match.group(1)) if subs_match else 0
             
             # Extract Views 30d
-            views_match = re.search(r"(?:👁️\s*)?Просмотры\s*(?:\(30д\))?\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
+            views_match = re.search(r"([\d\s]+)\s*просмотров\s*за\s*30\s*дней", text, re.I)
             if not views_match:
-                views_match = re.search(r"([\d\s]+)\s*просмотров\s*за\s*30\s*дней", text, re.I)
+                views_match = re.search(r"(?:👁️\s*)?Просмотры\s*(?:\(30д\))?\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
             views_val = parse_num_suffix(views_match.group(1)) if views_match else 0
             
             # Extract ER
-            er_match = re.search(r"(?:💬\s*)?ER\s*([\d\.,]+)%", text, re.I)
+            er_match = re.search(r"([\d\.,]+)%\s*вовлечённость", text, re.I)
             if not er_match:
-                er_match = re.search(r"([\d\.,]+)%\s*вовлечённость", text, re.I)
+                er_match = re.search(r"(?:💬\s*)?ER\s*([\d\.,]+)%", text, re.I)
             er_val = float(er_match.group(1).replace(",", ".")) if er_match else 0.0
             
             # Extract Viral Index
