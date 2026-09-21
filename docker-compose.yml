@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dzen_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: dzen_analytics
+      POSTGRES_USER: dzen_admin
+      POSTGRES_PASSWORD: dzen_secure_password_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dzen_admin -d dzen_analytics"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: dzen_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dzen_api
+    restart: always
+    command: uvicorn dzen_analytics_backend:app --host 0.0.0.0 --port 8000
+    environment:
+      DATABASE_URL: postgresql://dzen_admin:dzen_secure_password_2026@postgres:5432/dzen_analytics
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dzen_parser_worker
+    restart: always
+    command: python dzen_guru_parser.py
+    environment:
+      DATABASE_URL: postgresql://dzen_admin:dzen_secure_password_2026@postgres:5432/dzen_analytics
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:

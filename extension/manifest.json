@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Dzen Viral Analytics",
+  "version": "1.0.0",
+  "description": "Анализ виральности статей и динамики роста каналов Яндекс Дзен",
+  "permissions": ["storage"],
+  "host_permissions": ["https://dzen.ru/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://dzen.ru/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Dzen Viral Analytics"
+  }
+}
