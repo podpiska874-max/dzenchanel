@@ -292,21 +292,37 @@ class DzenHybridParserV14:
             # Extract Niche
             niche = extract_niche(soup, text)
             
+            raw_text = soup.get_text(separator=" ")
+            text = raw_text.replace('\u202f', ' ').replace('\xa0', ' ')
+            
             # Extract Subscribers
             subs_match = re.search(r"(?:👥\s*)?Подписчики\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
+            if not subs_match:
+                subs_match = re.search(r"([\d\s]+)\s*подписчиков", text, re.I)
             subs_val = parse_num_suffix(subs_match.group(1)) if subs_match else 0
             
             # Extract Views 30d
             views_match = re.search(r"(?:👁️\s*)?Просмотры\s*(?:\(30д\))?\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
+            if not views_match:
+                views_match = re.search(r"([\d\s]+)\s*просмотров\s*за\s*30\s*дней", text, re.I)
             views_val = parse_num_suffix(views_match.group(1)) if views_match else 0
             
             # Extract ER
             er_match = re.search(r"(?:💬\s*)?ER\s*([\d\.,]+)%", text, re.I)
+            if not er_match:
+                er_match = re.search(r"([\d\.,]+)%\s*вовлечённость", text, re.I)
             er_val = float(er_match.group(1).replace(",", ".")) if er_match else 0.0
             
             # Extract Viral Index
             vi_match = re.search(r"(?:⚡\s*)?Виральность\s*([\d\.,]+)", text, re.I)
             vi_val = float(vi_match.group(1).replace(",", ".")) if vi_match else round(views_val / max(subs_val, 1), 2)
+            
+            # Extract Correct Dzen URL
+            dzen_url = f"https://dzen.ru/{dzen_id}"
+            for a in soup.find_all("a", href=True):
+                if "dzen.ru" in a["href"]:
+                    dzen_url = a["href"]
+                    break
             
             # Extract Contacts
             tg_match = re.search(r"(https?://t\.me/[\w_]+|@[\w_]+)", text, re.I)
@@ -328,7 +344,7 @@ class DzenHybridParserV14:
                 "dzen_id": dzen_id,
                 "name": name,
                 "guru_url": channel_url,
-                "dzen_url": f"https://dzen.ru/{dzen_id}",
+                "dzen_url": dzen_url,
                 "niche": niche,
                 "avatar_url": avatar_url,
                 "subscribers": subs_val,
