@@ -1,0 +1,8 @@
+{
+  "name": "Dzen Analytics Platform",
+  "description": "Платформа аналитики, виральности и рейтингов каналов Яндекс Дзен, медиапланирования, полнофункциональной регистрации авторов и маркетологов с подтверждением по почте",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

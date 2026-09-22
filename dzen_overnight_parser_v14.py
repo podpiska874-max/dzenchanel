@@ -92,7 +92,7 @@ def parse_num_suffix(num_str: str) -> int:
 
 
 def extract_niche(soup: BeautifulSoup, fallback_text: str = "") -> str:
-    """Извлекает нишу из актуальной разметки dzen.guru."""
+    """Извлекает нишу из актуальной разметки dzen.ru."""
     text = fallback_text or soup.get_text(" ", strip=True)
     patterns = [
         r'"name":"Основная ниша".*?"value":"([^"]+)"',
@@ -173,7 +173,7 @@ class DzenHybridParserV14:
     """
     Автономный гибридный ночной парсер v14:
     1. Сканирование XML карт сайтов (sitemap-channels-1..5.xml) с автодекодированием UTF-8
-    2. Резервное сканирование через urllib и прямые категории каталога dzen.guru
+    2. Резервное сканирование через urllib и прямые категории каталога dzen.ru
     3. Встроенный сид-список ключевых каналов
     4. Многопоточный сбор подробной аналитики и контактов (Telegram, Email, VK)
     """
@@ -240,14 +240,14 @@ class DzenHybridParserV14:
     def harvest_channel_ids_from_sitemaps(self) -> Set[str]:
         found_ids = set()
 
-        sitemap_index = self.fetch_url_content("https://dzen.guru/sitemap.xml")
+        sitemap_index = self.fetch_url_content("https://dzen.ru/sitemap.xml")
         sitemap_urls = []
         if sitemap_index:
             sitemap_urls = re.findall(r"https?://dzen\.guru/sitemaps/channels-\d+\.xml", sitemap_index, re.I)
             sitemap_urls = list(dict.fromkeys(sitemap_urls))
 
         if not sitemap_urls:
-            sitemap_urls = [f"https://dzen.guru/sitemaps/channels-{i}.xml" for i in range(1, 6)]
+            sitemap_urls = [f"https://dzen.ru/sitemaps/channels-{i}.xml" for i in range(1, 6)]
 
         for idx, s_url in enumerate(sitemap_urls, 1):
             logging.info(f"📥 Сканирование карты [{idx}/{len(sitemap_urls)}]: {s_url}")
@@ -270,7 +270,7 @@ class DzenHybridParserV14:
         return found_ids
 
     def parse_channel_detail_page(self, dzen_id: str) -> Optional[Dict]:
-        channel_url = f"https://dzen.guru/channels/{dzen_id}"
+        channel_url = f"https://dzen.ru/channels/{dzen_id}"
         content = self.fetch_url_content(channel_url)
         if not content:
             return None

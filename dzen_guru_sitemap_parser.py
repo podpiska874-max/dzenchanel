@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-BASE_SITEMAP_URL = "https://dzen.guru/sitemap.xml"
+BASE_SITEMAP_URL = "https://dzen.ru/sitemap.xml"
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -24,9 +24,9 @@ HEADERS = {
 
 class DzenGuruSitemapParser:
     """
-    Высокопроизводительный асинхронный парсер dzen.guru на основе Sitemap (карты сайта):
+    Высокопроизводительный асинхронный парсер dzen.ru на основе Sitemap (карты сайта):
     1. Скачивает sitemap.xml и все дочерние sub-sitemaps (.xml / .xml.gz).
-    2. Извлекает прямые ссылки на страницы каналов (https://dzen.guru/channels/...).
+    2. Извлекает прямые ссылки на страницы каналов (https://dzen.ru/channels/...).
     3. Асинхронно параллельно обходит каждую страницу канала и извлекает:
        - Название, Нишу, Подписчиков, Просмотры (30д), ER %, Время чтения
        - Контакты (Telegram, Email, VK), Описание, Статьи
@@ -82,7 +82,7 @@ class DzenGuruSitemapParser:
                     if u.endswith(".xml") or u.endswith(".gz") or "sitemap" in u.lower():
                         if u not in processed_sitemaps and u not in sitemap_queue:
                             sitemap_queue.append(u)
-                    elif "/channels/" in u and u != "https://dzen.guru/channels":
+                    elif "/channels/" in u and u != "https://dzen.ru/channels":
                         channel_urls.add(u)
 
                 logging.info(f"✅ Извлечено ссылок из {current_sitemap}: {len(urls)} (Каналов найдено: {len(channel_urls)})")
@@ -101,7 +101,7 @@ class DzenGuruSitemapParser:
 
             # Название канала
             title_elem = soup.find("h1") or soup.find("title")
-            name = title_elem.text.replace("— dzen.guru", "").strip() if title_elem else url.split("/")[-1]
+            name = title_elem.text.replace("— dzen.ru", "").strip() if title_elem else url.split("/")[-1]
 
             # Ниша
             niche_elem = soup.find(class_=re.compile(r"niche|category|tag", re.I))
@@ -202,7 +202,7 @@ class DzenGuruSitemapParser:
             logging.error(f"Ошибка сохранения чекпоинта: {e}")
 
     async def run(self):
-        logging.info("🚀 Запуск парсинга через Sitemap dzen.guru...")
+        logging.info("🚀 Запуск парсинга через Sitemap dzen.ru...")
         start_time = time.time()
 
         cached_urls, parsed_channels = self.load_checkpoint()

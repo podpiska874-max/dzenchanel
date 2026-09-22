@@ -372,7 +372,7 @@ def build_clean_dzen_url(raw_url, dzen_id):
     url_str = str(raw_url).strip()
     if not url_str.startswith("http://") and not url_str.startswith("https://"):
         url_str = f"https://{url_str}"
-    if "dzen.guru" in url_str:
+    if "dzen.ru" in url_str:
         return f"https://dzen.ru/{dzen_id}" if dzen_id else "https://dzen.ru"
     return url_str
 

@@ -4,7 +4,7 @@ import sqlite3
 
 def import_data(json_file="dzen_deep_channels.json", db_file="dzen_analytics.db"):
     """
-    Импорт данных из парсера dzen.guru в SQLite базу данных с поддержкой avatar_url.
+    Импорт данных из парсера dzen.ru в SQLite базу данных с поддержкой avatar_url.
     """
     if not os.path.exists(json_file):
         if os.path.exists("dzen_all_channels.json"):

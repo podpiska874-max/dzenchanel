@@ -15,7 +15,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S"
 )
 
-BASE_URL = "https://dzen.guru/channels"
+BASE_URL = "https://dzen.ru/channels"
 TOTAL_PAGES_ESTIMATE = 6300
 OUTPUT_FILE = "dzen_all_channels.json"
 CHECKPOINT_FILE = "dzen_parser_checkpoint.json"
@@ -141,7 +141,7 @@ class FullDzenGuruParser:
         self.load_checkpoint()
         
         start_time = time.time()
-        logging.info(f"🚀 Запуск полного парсинга dzen.guru (страницы {self.start_page} — {max_pages})...")
+        logging.info(f"🚀 Запуск полного парсинга dzen.ru (страницы {self.start_page} — {max_pages})...")
 
         async with httpx.AsyncClient(follow_redirects=True) as client:
             for page in range(self.start_page, max_pages + 1):

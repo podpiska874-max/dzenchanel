@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-BASE_URL = "https://dzen.guru/channels"
+BASE_URL = "https://dzen.ru/channels"
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -20,7 +20,7 @@ HEADERS = {
 
 class DzenGuruDeepParser:
     """
-    Глубокий парсер dzen.guru:
+    Глубокий парсер dzen.ru:
     - Собирает базовую сводку из общего каталога
     - Заходит на детальную страницу каждого канала (/channels/имя_канала)
     - Извлекает контакты (Telegram, E-mail, VK), описание, историю и топ-публикации
@@ -52,7 +52,7 @@ class DzenGuruDeepParser:
             name = title_elem.text.strip()
             guru_detail_url = title_elem.get("href", "")
             if guru_detail_url.startswith("/"):
-                guru_detail_url = f"https://dzen.guru{guru_detail_url}"
+                guru_detail_url = f"https://dzen.ru{guru_detail_url}"
 
             niche_elem = card_soup.find(class_=re.compile(r"niche|category|tag", re.I))
             niche = niche_elem.text.strip() if niche_elem else "Общее"
@@ -90,7 +90,7 @@ class DzenGuruDeepParser:
             return None
 
     async def fetch_channel_details(self, client: httpx.AsyncClient, channel_data: Dict) -> Dict:
-        """Сканирование персональной страницы канала на dzen.guru для сбора контактов и деталей."""
+        """Сканирование персональной страницы канала на dzen.ru для сбора контактов и деталей."""
         if not self.deep_scan or not channel_data.get("guru_url"):
             return channel_data
 

@@ -481,7 +481,7 @@ def build_clean_dzen_url(channel_url, dzen_id=""):
             return f"https://dzen.ru/{id_str}"
         return "https://dzen.ru"
         
-    if "dzen.guru" in url_str:
+    if "dzen.ru" in url_str:
         if id_str and id_str.lower() not in ["none", "nan", "null", ""]:
             return f"https://dzen.ru/{id_str}"
         clean_path = url_str.split("/")[-1].replace(".html", "").replace("channel_", "")

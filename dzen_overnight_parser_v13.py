@@ -19,7 +19,7 @@ logging.basicConfig(
     ]
 )
 
-MAIN_SITEMAP_URL = "https://dzen.guru/sitemap.xml"
+MAIN_SITEMAP_URL = "https://dzen.ru/sitemap.xml"
 DB_PATH = "dzen_analytics.db"
 CHECKPOINT_FILE = "dzen_parser_checkpoint.json"
 OUTPUT_JSON = "dzen_deep_channels.json"
@@ -72,7 +72,7 @@ def parse_num_suffix(num_str: str) -> int:
 
 
 def extract_niche(soup: BeautifulSoup, fallback_text: str = "") -> str:
-    """Извлекает нишу из актуальной разметки dzen.guru."""
+    """Извлекает нишу из актуальной разметки dzen.ru."""
     text = fallback_text or soup.get_text(" ", strip=True)
     patterns = [
         r'"name":"Основная ниша".*?"value":"([^"]+)"',
@@ -152,7 +152,7 @@ def extract_avatar_url(soup: BeautifulSoup) -> str:
 class DzenSitemapParserV13:
     """
     Автономный ночной парсер v13 (Sitemap XML Engine - Сверхнадежный):
-    - Прямое сканирование XML-карт dzen.guru (250 000+ каналов)
+    - Прямое сканирование XML-карт dzen.ru (250 000+ каналов)
     - Устойчивое кодирование UTF-8 и генерация регулярных выражений
     - Многопоточный сбор метрик, контактов (TG, Email, VK) и описаний
     - Прямая запись в SQLite dzen_analytics.db и dzen_deep_channels.json
@@ -217,7 +217,7 @@ class DzenSitemapParserV13:
         except Exception as e:
             logging.error(f"⚠️ Ошибка загрузки главной карты: {e}")
 
-        fallback = [f"https://dzen.guru/sitemaps/channels-{i}.xml" for i in range(1, 6)]
+        fallback = [f"https://dzen.ru/sitemaps/channels-{i}.xml" for i in range(1, 6)]
         logging.info(f"📋 Используем список из {len(fallback)} карт каналов")
         return fallback
 
