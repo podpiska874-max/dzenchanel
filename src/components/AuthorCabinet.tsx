@@ -26,7 +26,7 @@ interface AuthorCabinetProps {
   channels: Channel[];
   session: UserSession;
   onUpdateChannelRates: (channelId: number, rates: Channel['rates'], demographics: Channel['demographics']) => void;
-  onVerifyChannel: (channelId: number, login: string, method?: string) => void;
+  onVerifyChannel: (channelId: number, login: string, method?: string, code?: string) => void;
   onLinkChannelToSession: (channelId: number) => void;
 }
 
@@ -103,16 +103,19 @@ export const AuthorCabinet: React.FC<AuthorCabinetProps> = ({
   };
 
   // 1. Bio verification check simulation
-  const handleVerifyViaBio = () => {
+  const handleVerifyViaBio = async () => {
     if (!selectedChannel) return;
     setIsCheckingBio(true);
     setVerificationFeedback(null);
 
-    setTimeout(() => {
-      setIsCheckingBio(false);
-      onVerifyChannel(selectedChannel.id, `${selectedChannel.dzen_id}@yandex.ru`, 'bio_code');
+    try {
+      await onVerifyChannel(selectedChannel.id, `${selectedChannel.dzen_id}@yandex.ru`, 'bio_code', verificationCode);
       setVerificationFeedback('Код успешно найден в описании канала dzen.ru! Канал верифицирован.');
-    }, 1200);
+    } catch (err: any) {
+      setVerificationFeedback(`Ошибка проверки: ${err.message || 'Неизвестная ошибка'}`);
+    } finally {
+      setIsCheckingBio(false);
+    }
   };
 
   // 2. Yandex ID OAuth simulation

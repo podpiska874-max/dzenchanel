@@ -4,6 +4,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { INITIAL_CHANNELS, INITIAL_DEALS, NICHES_LIST } from "./src/data/seedChannels";
 import { Channel, Deal, RegisteredUser } from "./src/types";
+import { dzenOwnershipVerifier } from "./server/dzenVerifier";
 
 // In-memory data store for channels and deals
 const channelsStore: Channel[] = [...INITIAL_CHANNELS];
@@ -439,18 +440,37 @@ async function startServer() {
   });
 
   // 9. Author verification & rates
-  app.post("/api/v1/author/verify", (req, res) => {
-    const { channel_id, yandex_login } = req.body;
-    const channel = channelsStore.find(c => c.id === channel_id || c.dzen_id === channel_id);
-    if (!channel) {
-      return res.status(404).json({ error: "Канал не найден" });
+  app.post("/api/v1/author/verify", async (req, res) => {
+    try {
+      const { channel_id, yandex_login, code, method } = req.body;
+      const channel = channelsStore.find(c => c.id === channel_id || c.dzen_id === channel_id);
+      if (!channel) {
+        return res.status(404).json({ error: "Канал не найден" });
+      }
+
+      if (method === 'bio_code') {
+        if (!code) {
+          return res.status(400).json({ error: "Код подтверждения не передан" });
+        }
+        const verifyResult = await dzenOwnershipVerifier.verifyOwnership(channel.url, code);
+
+        if (!verifyResult.is_verified) {
+          return res.status(400).json({
+            error: verifyResult.error_message || "Контрольный токен не обнаружен в описании канала."
+          });
+        }
+      }
+
+      channel.is_verified = true;
+      res.json({
+        status: "verified",
+        channel,
+        yandex_login: yandex_login || "dzen.creator@yandex.ru"
+      });
+    } catch (err: any) {
+      console.error("Author verify error:", err);
+      res.status(500).json({ error: "Внутренняя ошибка сервера" });
     }
-    channel.is_verified = true;
-    res.json({
-      status: "verified",
-      channel,
-      yandex_login: yandex_login || "dzen.creator@yandex.ru"
-    });
   });
 
   app.put("/api/v1/author/rates", (req, res) => {

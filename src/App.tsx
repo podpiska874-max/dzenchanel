@@ -279,29 +279,39 @@ export default function App() {
     }).catch(() => {});
   };
 
-  const handleVerifyChannel = (channelId: number, login: string, method?: string) => {
-    setChannels(prev => prev.map(c => {
-      if (c.id === channelId) {
-        return { ...c, is_verified: true };
+  const handleVerifyChannel = async (channelId: number, login: string, method?: string, code?: string) => {
+    try {
+      const res = await fetch('/api/v1/author/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel_id: channelId, yandex_login: login, method, code })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Ошибка подтверждения');
       }
-      return c;
-    }));
 
-    setSession(prev => ({
-      ...prev,
-      authorChannelId: channelId,
-      isChannelClaimed: true,
-      verificationMethod: (method as any) || 'yandex_oauth'
-    }));
+      setChannels(prev => prev.map(c => {
+        if (c.id === channelId) {
+          return { ...c, is_verified: true };
+        }
+        return c;
+      }));
 
-    setToastMessage(`Канал успешно подтвержден и привязан к вашему кабинету автора!`);
-    setTimeout(() => setToastMessage(null), 4000);
+      setSession(prev => ({
+        ...prev,
+        authorChannelId: channelId,
+        isChannelClaimed: true,
+        verificationMethod: (method as any) || 'yandex_oauth'
+      }));
 
-    fetch('/api/v1/author/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel_id: channelId, yandex_login: login, method })
-    }).catch(() => {});
+      setToastMessage(`Канал успешно подтвержден и привязан к вашему кабинету автора!`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      throw err;
+    }
   };
 
   const handleLinkChannelToSession = (channelId: number) => {
