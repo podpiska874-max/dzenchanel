@@ -1941,7 +1941,7 @@ if st.session_state["selected_channel_id"] is not None:
                 st.success(f"1. 🔥 «{custom_topic}»: О чем молчат эксперты в 2026 году?")
                 st.success(f"2. ⚡ Разбор опыта канала {channel['channel_name']}: Полный гайд")
 
-    else:
+    elif cat_choice == "💼 3. Коммерция & Связь":
         t_mediakit, t_contacts = st.tabs([
             "📄 Публичный Медиакит",
             "📱 Контакты & Описание"
@@ -2021,9 +2021,9 @@ with tab_cat:
         
         st.caption(f"📊 Отображаются каналы **{start_idx + 1}–{min(end_idx, len(filtered_df))}** из **{len(filtered_df)}** (по 20 карточек на странице)")
         
-        cols = st.columns(3)
+        cols = st.columns(2)
         for idx, (_, row) in enumerate(page_df.iterrows()):
-            col_idx = idx % 3
+            col_idx = idx % 2
             with cols[col_idx]:
                 vi = row["avg_viral_index"]
                 fraud_v = row["fraud_score"]
