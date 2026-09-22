@@ -340,6 +340,12 @@ def ensure_schema_migrations(conn):
         except Exception:
             pass
 
+    if "median_post_reach" not in existing_stats_cols:
+        try:
+            cursor.execute("ALTER TABLE channel_daily_stats ADD COLUMN median_post_reach INTEGER DEFAULT 0")
+        except Exception:
+            pass
+
     try:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_stats_channel_id ON channel_daily_stats(channel_id, id DESC);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_niche ON channels(niche_id);")
@@ -403,7 +409,8 @@ def load_data():
         s.avg_viral_index,
         s.growth_velocity_daily,
         COALESCE(s.subscribers_growth_30d, 0) AS subscribers_growth_30d,
-        COALESCE(s.readability_percent, 85.0) AS readability_percent
+        COALESCE(s.readability_percent, 85.0) AS readability_percent,
+        COALESCE(s.median_post_reach, 0) AS median_post_reach
     FROM channels c
     LEFT JOIN niches n ON c.niche_id = n.id
     LEFT JOIN max_stats ms ON ms.channel_id = c.id
@@ -1490,7 +1497,9 @@ if app_mode == "✍️ Личный кабинет Автора канала":
 
 ПОКАЗАТЕЛИ КАНАЛА:
 - Подписчики: {my_channel.get('subscribers_count', 0):,} чел.
+- Прирост (30д): {my_channel.get('subscribers_growth_30d', 0):,}
 - Просмотры (30д): {my_channel.get('views_30d', 0):,}
+- Охват поста (медиана): {my_channel.get('median_post_reach', 0):,}
 - Коэффициент виральности (Viral Index): {vi_val:.2f}
 - Вовлеченность (ER): {my_channel.get('er_percent', 0):.1f}%
 
@@ -1743,14 +1752,13 @@ if st.session_state["selected_channel_id"] is not None:
     </div>
     ''')
     
-    cat_choice = st.radio(
+    cat_choice = st.selectbox(
         "Категория инструментов:",
         [
             "📊 1. Аналитика & Метрики",
             "🎯 2. Маркетинг & AI-Инструменты",
             "💼 3. Коммерция & Связь"
         ],
-        horizontal=True,
         key=f"master_cat_choice_{selected_id}",
         label_visibility="collapsed"
     )
@@ -1766,6 +1774,20 @@ if st.session_state["selected_channel_id"] is not None:
 
         with t_dynamics:
             st.subheader("📈 Историческая динамика показателей канала")
+
+            md_col1, md_col2, md_col3, md_col4 = st.columns(4)
+            with md_col1:
+                st.metric("Подписчики", f"{channel.get('subscribers_count', 0):,}")
+            with md_col2:
+                growth_val = channel.get('subscribers_growth_30d', 0)
+                st.metric("Прирост (30д)", f"{'+' if growth_val > 0 else ''}{growth_val:,}")
+            with md_col3:
+                st.metric("Охват поста (медиана)", f"{channel.get('median_post_reach', 0):,}")
+            with md_col4:
+                st.metric("ER %", f"{channel.get('er_percent', 0):.1f}%")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
             history_df = get_channel_history(channel["db_id"])
             if len(history_df) <= 1:
                 st.info("ℹ️ История канала формируется. Повторите импорт через несколько дней для графика динамики!")
@@ -1859,7 +1881,7 @@ if st.session_state["selected_channel_id"] is not None:
                             💰 Цена поста: ~<b>{est_a_cost:,} ₽</b>
                         </div>
                         """)
-                        if st.button(f"📊 Анализ #{arow['db_id']}", key=f"btn_an_{arow['db_id']}", use_container_width=True):
+                        if st.button(f"📊 Открыть #{arow['db_id']}", key=f"btn_an_{arow['db_id']}", use_container_width=True):
                             st.session_state["selected_channel_id"] = arow["db_id"]
                             st.rerun()
 
@@ -1919,7 +1941,7 @@ if st.session_state["selected_channel_id"] is not None:
                 st.success(f"1. 🔥 «{custom_topic}»: О чем молчат эксперты в 2026 году?")
                 st.success(f"2. ⚡ Разбор опыта канала {channel['channel_name']}: Полный гайд")
 
-    else:
+    elif cat_choice == "💼 3. Коммерция & Связь":
         t_mediakit, t_contacts = st.tabs([
             "📄 Публичный Медиакит",
             "📱 Контакты & Описание"
@@ -1999,9 +2021,9 @@ with tab_cat:
         
         st.caption(f"📊 Отображаются каналы **{start_idx + 1}–{min(end_idx, len(filtered_df))}** из **{len(filtered_df)}** (по 20 карточек на странице)")
         
-        cols = st.columns(3)
+        cols = st.columns(2)
         for idx, (_, row) in enumerate(page_df.iterrows()):
-            col_idx = idx % 3
+            col_idx = idx % 2
             with cols[col_idx]:
                 vi = row["avg_viral_index"]
                 fraud_v = row["fraud_score"]
@@ -2037,7 +2059,9 @@ with tab_cat:
                     </div>
                     <div style="display: flex; justify-content: space-between; background: #0d1117; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem;">
                         <div title="Подписчики канала">👥 Subs: <b>{fmt_num(row['subscribers_count'])}</b></div>
+                        <div title="Прирост подписчиков (30д)">📈 +<b>{fmt_num(row['subscribers_growth_30d'])}</b></div>
                         <div title="30-дневный охват">👁️ Views: <b>{fmt_num(row['views_30d'])}</b></div>
+                        <div title="Медианный охват поста">🎯 Med Reach: <b>{fmt_num(row['median_post_reach'])}</b></div>
                         <div title="Вовлеченность аудитории ER">💬 ER: <b>{row['er_percent']:.1f}%</b></div>
                     </div>
                 </div>
@@ -2045,7 +2069,7 @@ with tab_cat:
                 
                 btn_col1, btn_col2, btn_col3 = st.columns([3, 1, 1])
                 with btn_col1:
-                    if st.button("📊 Анализ", key=f"btn_anal_{row['db_id']}", use_container_width=True, help="Открыть глубокую аналитику и статистику канала"):
+                    if st.button("📊 Открыть", key=f"btn_anal_{row['db_id']}", use_container_width=True, help="Открыть глубокую аналитику и статистику канала"):
                         st.session_state["selected_channel_id"] = row["db_id"]
                         st.rerun()
                 with btn_col2:

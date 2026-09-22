@@ -216,7 +216,8 @@ class DzenHybridParserV14:
             growth_velocity_daily INTEGER DEFAULT 0,
             avg_viral_index REAL DEFAULT 0.0,
             subscribers_growth_30d INTEGER DEFAULT 0,
-            readability_percent REAL DEFAULT 85.0
+            readability_percent REAL DEFAULT 85.0,
+            median_post_reach INTEGER DEFAULT 0
         );
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_stats_ch_id ON channel_daily_stats(channel_id, id DESC);")
@@ -296,27 +297,37 @@ class DzenHybridParserV14:
             text = raw_text.replace('\u202f', ' ').replace('\xa0', ' ')
             
             # Extract Subscribers
-            subs_match = re.search(r"(?:👥\s*)?Подписчики\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
+            subs_match = re.search(r"([\d\s]+)\s*подписчиков", text, re.I)
             if not subs_match:
-                subs_match = re.search(r"([\d\s]+)\s*подписчиков", text, re.I)
+                subs_match = re.search(r"(?:👥\s*)?Подписчики\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
             subs_val = parse_num_suffix(subs_match.group(1)) if subs_match else 0
             
             # Extract Views 30d
-            views_match = re.search(r"(?:👁️\s*)?Просмотры\s*(?:\(30д\))?\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
+            views_match = re.search(r"([\d\s]+)\s*просмотров\s*за\s*30\s*дней", text, re.I)
             if not views_match:
-                views_match = re.search(r"([\d\s]+)\s*просмотров\s*за\s*30\s*дней", text, re.I)
+                views_match = re.search(r"(?:👁️\s*)?Просмотры\s*(?:\(30д\))?\s*([\d\.,\s]+[КМkM]?)\b", text, re.I)
             views_val = parse_num_suffix(views_match.group(1)) if views_match else 0
             
             # Extract ER
-            er_match = re.search(r"(?:💬\s*)?ER\s*([\d\.,]+)%", text, re.I)
+            er_match = re.search(r"([\d\.,]+)%\s*вовлечённость", text, re.I)
             if not er_match:
-                er_match = re.search(r"([\d\.,]+)%\s*вовлечённость", text, re.I)
+                er_match = re.search(r"(?:💬\s*)?ER\s*([\d\.,]+)%", text, re.I)
             er_val = float(er_match.group(1).replace(",", ".")) if er_match else 0.0
             
             # Extract Viral Index
             vi_match = re.search(r"(?:⚡\s*)?Виральность\s*([\d\.,]+)", text, re.I)
             vi_val = float(vi_match.group(1).replace(",", ".")) if vi_match else round(views_val / max(subs_val, 1), 2)
             
+            # Extract Growth & Median Reach
+            growth_30d_match = re.search(r'Всего\s*за\s*период\s*≈\s*([−\-\d\.,]+)', text, re.I)
+            growth_30d_val = int(re.sub(r'[^\d\-]', '', growth_30d_match.group(1).replace('−', '-'))) if growth_30d_match else 0
+
+            daily_growth_match = re.search(r'день\s*≈\s*([−\-\d\.,]+)', text, re.I)
+            daily_growth_val = int(re.sub(r'[^\d\-]', '', daily_growth_match.group(1).replace('−', '-'))) if daily_growth_match else 0
+
+            median_reach_match = re.search(r'Охват одной публикации\s*([\d\s]+)', text, re.I)
+            median_reach_val = int(re.sub(r'[^\d]', '', median_reach_match.group(1))) if median_reach_match else 0
+
             # Extract Correct Dzen URL
             dzen_url = f"https://dzen.ru/{dzen_id}"
             for a in soup.find_all("a", href=True):
@@ -350,7 +361,9 @@ class DzenHybridParserV14:
                 "subscribers": subs_val,
                 "views_30d": views_val,
                 "er_percent": er_val,
-                "growth_30d": 0,
+                "growth_30d": growth_30d_val,
+                "daily_growth": daily_growth_val,
+                "median_post_reach": median_reach_val,
                 "readability_percent": 85.0,
                 "avg_viral_index": vi_val,
                 "telegram": tg_val,
@@ -397,11 +410,11 @@ class DzenHybridParserV14:
                 cursor.execute("""
                     INSERT INTO channel_daily_stats (
                         channel_id, subscribers_count, views_30d, er_percent, avg_viral_index,
-                        growth_velocity_daily, subscribers_growth_30d, readability_percent
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                        growth_velocity_daily, subscribers_growth_30d, readability_percent, median_post_reach
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """, (
                     ch_id, item["subscribers"], item["views_30d"], item["er_percent"],
-                    item["avg_viral_index"], 0, 0, item["readability_percent"]
+                    item["avg_viral_index"], item.get("daily_growth", 0), item.get("growth_30d", 0), item["readability_percent"], item.get("median_post_reach", 0)
                 ))
         conn.commit()
         conn.close()

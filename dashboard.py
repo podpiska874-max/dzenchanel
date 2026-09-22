@@ -61,6 +61,12 @@ def ensure_schema_migrations(conn):
         except Exception:
             pass
 
+    if "median_post_reach" not in existing_stats_cols:
+        try:
+            cursor.execute("ALTER TABLE channel_daily_stats ADD COLUMN median_post_reach INTEGER DEFAULT 0")
+        except Exception:
+            pass
+
     conn.commit()
 
 @st.cache_data(ttl=60)
@@ -87,7 +93,9 @@ def load_data():
         s.views_30d,
         s.er_percent,
         s.avg_viral_index,
-        s.growth_velocity_daily
+        s.growth_velocity_daily,
+        s.subscribers_growth_30d,
+        s.median_post_reach
     FROM channels c
     LEFT JOIN niches n ON c.niche_id = n.id
     LEFT JOIN channel_daily_stats s ON c.id = s.channel_id
@@ -229,7 +237,8 @@ if search_term:
 
 cols_to_show = [
     "channel_name", "niche", "subscribers_count", "views_30d", 
-    "avg_viral_index", "er_percent", "telegram_contact", "email_contact", "channel_url"
+    "avg_viral_index", "er_percent", "growth_velocity_daily", "subscribers_growth_30d",
+    "median_post_reach", "telegram_contact", "email_contact", "channel_url"
 ]
 display_table = display_df[cols_to_show].rename(columns={
     "channel_name": "Канал",
@@ -238,6 +247,9 @@ display_table = display_df[cols_to_show].rename(columns={
     "views_30d": "Просмотры (30д)",
     "avg_viral_index": "VI",
     "er_percent": "ER %",
+    "growth_velocity_daily": "Прирост (день)",
+    "subscribers_growth_30d": "Прирост (30д)",
+    "median_post_reach": "Охват (медиана)",
     "telegram_contact": "Telegram",
     "email_contact": "Email",
     "channel_url": "Ссылка"
@@ -251,6 +263,9 @@ st.dataframe(
         "ER %": st.column_config.NumberColumn("ER %", format="%.1f%%"),
         "Подписчики": st.column_config.NumberColumn(format="%d"),
         "Просмотры (30д)": st.column_config.NumberColumn(format="%d"),
+        "Прирост (день)": st.column_config.NumberColumn(format="%d"),
+        "Прирост (30д)": st.column_config.NumberColumn(format="%d"),
+        "Охват (медиана)": st.column_config.NumberColumn(format="%d"),
     },
     use_container_width=True,
     hide_index=True
