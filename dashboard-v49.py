@@ -1752,7 +1752,7 @@ if st.session_state["selected_channel_id"] is not None:
     </div>
     ''')
     
-    cat_choice = st.pills(
+    cat_choice = st.selectbox(
         "Категория инструментов:",
         [
             "📊 1. Аналитика & Метрики",
@@ -1763,7 +1763,7 @@ if st.session_state["selected_channel_id"] is not None:
         label_visibility="collapsed"
     )
 
-    if not cat_choice or cat_choice == "📊 1. Аналитика & Метрики":
+    if cat_choice == "📊 1. Аналитика & Метрики":
         t_dynamics, t_articles, t_demographics, t_heatmap, t_analogues = st.tabs([
             "📈 Динамика Роста", 
             "📰 Топ-Статьи", 
