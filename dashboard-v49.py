@@ -1775,6 +1775,20 @@ if st.session_state["selected_channel_id"] is not None:
 
         with t_dynamics:
             st.subheader("📈 Историческая динамика показателей канала")
+
+            md_col1, md_col2, md_col3, md_col4 = st.columns(4)
+            with md_col1:
+                st.metric("Подписчики", f"{channel.get('subscribers_count', 0):,}")
+            with md_col2:
+                growth_val = channel.get('subscribers_growth_30d', 0)
+                st.metric("Прирост (30д)", f"{'+' if growth_val > 0 else ''}{growth_val:,}")
+            with md_col3:
+                st.metric("Охват поста (медиана)", f"{channel.get('median_post_reach', 0):,}")
+            with md_col4:
+                st.metric("ER %", f"{channel.get('er_percent', 0):.1f}%")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
             history_df = get_channel_history(channel["db_id"])
             if len(history_df) <= 1:
                 st.info("ℹ️ История канала формируется. Повторите импорт через несколько дней для графика динамики!")
