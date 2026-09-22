@@ -1752,19 +1752,18 @@ if st.session_state["selected_channel_id"] is not None:
     </div>
     ''')
     
-    cat_choice = st.radio(
+    cat_choice = st.pills(
         "Категория инструментов:",
         [
             "📊 1. Аналитика & Метрики",
             "🎯 2. Маркетинг & AI-Инструменты",
             "💼 3. Коммерция & Связь"
         ],
-        horizontal=True,
         key=f"master_cat_choice_{selected_id}",
         label_visibility="collapsed"
     )
 
-    if cat_choice == "📊 1. Аналитика & Метрики":
+    if not cat_choice or cat_choice == "📊 1. Аналитика & Метрики":
         t_dynamics, t_articles, t_demographics, t_heatmap, t_analogues = st.tabs([
             "📈 Динамика Роста", 
             "📰 Топ-Статьи", 
@@ -1882,7 +1881,7 @@ if st.session_state["selected_channel_id"] is not None:
                             💰 Цена поста: ~<b>{est_a_cost:,} ₽</b>
                         </div>
                         """)
-                        if st.button(f"📊 Анализ #{arow['db_id']}", key=f"btn_an_{arow['db_id']}", use_container_width=True):
+                        if st.button(f"📊 Открыть #{arow['db_id']}", key=f"btn_an_{arow['db_id']}", use_container_width=True):
                             st.session_state["selected_channel_id"] = arow["db_id"]
                             st.rerun()
 
@@ -2070,7 +2069,7 @@ with tab_cat:
                 
                 btn_col1, btn_col2, btn_col3 = st.columns([3, 1, 1])
                 with btn_col1:
-                    if st.button("📊 Анализ", key=f"btn_anal_{row['db_id']}", use_container_width=True, help="Открыть глубокую аналитику и статистику канала"):
+                    if st.button("📊 Открыть", key=f"btn_anal_{row['db_id']}", use_container_width=True, help="Открыть глубокую аналитику и статистику канала"):
                         st.session_state["selected_channel_id"] = row["db_id"]
                         st.rerun()
                 with btn_col2:
