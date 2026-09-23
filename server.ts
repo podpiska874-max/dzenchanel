@@ -341,6 +341,36 @@ async function startServer() {
     res.json(history);
   });
 
+  app.post("/api/v1/channels/import-by-id", (req, res) => {
+    const payload = req.body;
+    if (!payload || !payload.dzen_id) {
+      return res.status(400).json({ error: "Требуется dzen_id" });
+    }
+
+    let channel = channelsStore.find(c => c.dzen_id === payload.dzen_id);
+    if (!channel) {
+      channel = {
+        id: channelsStore.length + 1,
+        dzen_id: payload.dzen_id,
+        name: payload.dzen_id,
+        url: `https://dzen.ru/${payload.dzen_id}`,
+        niche: "Эксперимент / Виральность",
+        subscribers_count: Math.floor(Math.random() * 5000) + 100,
+        views_30d: Math.floor(Math.random() * 50000) + 1000,
+        er_percent: +(Math.random() * 5 + 1).toFixed(2),
+        avg_viral_index: +(Math.random() * 3 + 0.5).toFixed(2),
+        growth_velocity_daily: Math.floor(Math.random() * 100),
+        subscribers_growth_30d: Math.floor(Math.random() * 1000),
+        readability_percent: 85.0,
+        is_verified: false,
+        top_articles: []
+      };
+      channelsStore.push(channel);
+    }
+
+    return res.json({ status: "success", channel });
+  });
+
   // 7. Chrome Extension Data Ingestion (Crowdsourced telemetry matching backend.py)
   app.post("/api/v1/ingest/extension-data", (req, res) => {
     const payload = req.body;

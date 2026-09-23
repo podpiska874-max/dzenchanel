@@ -1,51 +1,72 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'FETCH_ARTICLE_METRICS') {
-    handleFetchArticle(message.url)
-      .then(metrics => sendResponse({ status: 'success', data: metrics }))
+  if (message.type === 'FETCH_CHANNEL_STATS') {
+    handleFetchChannelStats(message.channelId)
+      .then(stats => sendResponse({ status: 'success', data: stats }))
+      .catch(error => {
+        if (error.message === '404') {
+          sendResponse({ status: 'not_found' });
+        } else {
+          sendResponse({ status: 'error', error: error.message });
+        }
+      });
+    return true;
+  }
+  if (message.type === 'IMPORT_CHANNEL') {
+    handleImportChannel(message.channelId)
+      .then(stats => sendResponse({ status: 'success', data: stats }))
       .catch(error => sendResponse({ status: 'error', error: error.message }));
     return true;
   }
 });
 
-async function handleFetchArticle(articleUrl) {
-  const cacheKey = `article_${articleUrl}`;
+async function handleFetchChannelStats(channelId) {
+  const cacheKey = `channel_${channelId}`;
   const cached = await chrome.storage.local.get([cacheKey]);
-  if (cached[cacheKey]) return cached[cacheKey];
 
-  const response = await fetch(articleUrl);
-  if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-  const htmlText = await response.text();
+  if (cached[cacheKey] && cached[cacheKey].timestamp && (Date.now() - cached[cacheKey].timestamp < 5 * 60 * 1000)) {
+    return cached[cacheKey].data;
+  }
 
-  const match = htmlText.match(/window\.__INITIAL_STATE__\s*=\s*({.*?});<\/script>/s);
-  if (!match) throw new Error('INITIAL_STATE не найден');
+  const response = await fetch(`http://localhost:3000/api/v1/channels/${channelId}`);
+  if (response.status === 404) {
+    throw new Error('404');
+  }
+  if (!response.ok) {
+    throw new Error(`HTTP Error: ${response.status}`);
+  }
 
-  const initialState = JSON.parse(match[1]);
-  const publication = initialState?.article || initialState?.publication || {};
-  const channel = initialState?.channel || {};
+  const data = await response.json();
+  await chrome.storage.local.set({
+    [cacheKey]: {
+      timestamp: Date.now(),
+      data: data
+    }
+  });
 
-  const viewsCount = publication.viewsCount || publication.readingsCount || 0;
-  const likesCount = publication.likesCount || 0;
-  const commentsCount = publication.commentsCount || 0;
-  const subscribersCount = channel.subscribersCount || 1;
+  return data;
+}
 
-  const viralIndex = parseFloat((viewsCount / subscribersCount).toFixed(2));
+async function handleImportChannel(channelId) {
+  const response = await fetch(`http://localhost:3000/api/v1/channels/import-by-id`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dzen_id: channelId })
+  });
 
-  const resultData = { viewsCount, likesCount, commentsCount, subscribersCount, viralIndex };
-  await chrome.storage.local.set({ [cacheKey]: resultData });
+  if (!response.ok) {
+    throw new Error(`HTTP Error: ${response.status}`);
+  }
 
-  try {
-    await fetch('http://localhost:8000/api/v1/ingest/extension-data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        channel_name: channel.title || 'Неизвестно',
-        dzen_url: articleUrl,
-        views_count: viewsCount,
-        subscribers_count: subscribersCount,
-        viral_index: viralIndex
-      })
-    });
-  } catch (e) {}
+  const result = await response.json();
+  const data = result.channel;
 
-  return resultData;
+  const cacheKey = `channel_${channelId}`;
+  await chrome.storage.local.set({
+    [cacheKey]: {
+      timestamp: Date.now(),
+      data: data
+    }
+  });
+
+  return data;
 }
