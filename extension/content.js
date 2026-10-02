@@ -4,8 +4,9 @@ const observer = new MutationObserver(() => {
 });
 observer.observe(document.body, { childList: true, subtree: true });
 
-// Run SEO Tool on page load
+// Run checks on page load
 extractSEOTags();
+checkShadowban();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'swapABTestTitle') {
@@ -33,14 +34,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'doBulkReplace') {
     const { oldText, newText } = message.data;
     const editor = document.querySelector('[contenteditable="true"]') || document.querySelector('.editor-content');
-    if (editor) {
-       editor.innerHTML = editor.innerHTML.split(oldText).join(newText);
-       editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-       setTimeout(() => {
-          const saveBtn = document.querySelector('button[aria-label="Сохранить"]') || document.querySelector('.editor-save-button');
-          if (saveBtn) saveBtn.click();
-       }, 1000);
+    if (editor) {
+       // Using a TreeWalker to safely replace text only inside Text nodes, avoiding HTML corruption
+       const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null, false);
+       let node;
+       let changed = false;
+       while ((node = walker.nextNode())) {
+         if (node.nodeValue.includes(oldText)) {
+           node.nodeValue = node.nodeValue.split(oldText).join(newText);
+           changed = true;
+         }
+       }
+
+       if (changed) {
+         editor.dispatchEvent(new Event('input', { bubbles: true }));
+         setTimeout(() => {
+            const saveBtn = document.querySelector('button[aria-label="Сохранить"]') || document.querySelector('.editor-save-button');
+            if (saveBtn) saveBtn.click();
+         }, 1000);
+       }
     }
   }
 });
@@ -200,7 +213,20 @@ function renderNotFoundPanel(panel, channelId) {
   });
 }
 
-// ERID Control
+// ERID Control State Sync
+let isEridProtectionEnabled = true; // default true
+chrome.storage.local.get(['protection_erid'], (res) => {
+  if (res.protection_erid !== undefined) {
+    isEridProtectionEnabled = res.protection_erid;
+  }
+});
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.protection_erid) {
+    isEridProtectionEnabled = changes.protection_erid.newValue;
+  }
+});
+
+// ERID Control Click Interceptor
 document.addEventListener('click', (e) => {
   // Try to identify the publish button by class or text content
   const target = e.target;
@@ -208,22 +234,18 @@ document.addEventListener('click', (e) => {
                        (target.closest('button').textContent.toLowerCase().includes('опубликовать') ||
                         target.closest('button').classList.contains('editor-publish-button')); // Example classes
 
-  if (isPublishBtn) {
-    chrome.storage.local.get(['protection_erid'], (res) => {
-      if (res.protection_erid === false) return;
-
-      // Find the editor content
-      const editor = document.querySelector('[contenteditable="true"]') || document.querySelector('.editor-content');
-      if (editor) {
-        const editorText = editor.textContent;
-        const eridRegex = /erid:\s*[a-zA-Z0-9]{4,}/i;
-        if (!eridRegex.test(editorText)) {
-          e.preventDefault();
-          e.stopPropagation();
-          alert('Ошибка: Отсутствует токен ERID!');
-        }
+  if (isPublishBtn && isEridProtectionEnabled) {
+    // Find the editor content
+    const editor = document.querySelector('[contenteditable="true"]') || document.querySelector('.editor-content');
+    if (editor) {
+      const editorText = editor.textContent;
+      const eridRegex = /erid:\s*[a-zA-Z0-9]{4,}/i;
+      if (!eridRegex.test(editorText)) {
+        e.preventDefault();
+        e.stopPropagation();
+        alert('Ошибка: Отсутствует токен ERID!');
       }
-    });
+    }
   }
 }, true); // Use capture phase to intercept before actual publish handlers
 
@@ -269,28 +291,47 @@ function calculateAndAppendER(card) {
 }
 
 // Shadowban Detector (noindex)
-let shadowbanTimeout;
+let shadowbanIsRunning = false;
 function checkShadowban() {
-  if (shadowbanTimeout) clearTimeout(shadowbanTimeout);
-  shadowbanTimeout = setTimeout(() => {
+  if (shadowbanIsRunning) return; // Basic throttle
+  shadowbanIsRunning = true;
+
+  setTimeout(() => {
+    shadowbanIsRunning = false;
     chrome.storage.local.get(['protection_noindex'], (res) => {
       if (res.protection_noindex === false) return; // Enabled by default if not set
 
-      const noindexMeta = document.querySelector('meta[name="robots"][content="noindex"]');
-      if (noindexMeta && !document.getElementById('dzen-shadowban-warning')) {
-        // Try to find a logical container. On studio pages, maybe there's a card or we just append to body
-        let container = noindexMeta.closest('article') || noindexMeta.closest('.card') || document.body;
-        if (container) {
-          container.style.border = "3px solid red";
-          const warning = document.createElement('div');
-          warning.id = 'dzen-shadowban-warning';
-          warning.textContent = 'ТЕНЕВОЙ БАН (noindex)';
-          warning.style.cssText = 'background: red; color: white; padding: 10px; font-weight: bold; text-align: center; position: sticky; top: 0; z-index: 9999; width: 100%;';
-          container.prepend(warning);
+      // Look for all meta tags with name="robots", since content can be "noindex, nofollow", etc.
+      const robotMetas = document.querySelectorAll('meta[name="robots"]');
+
+      robotMetas.forEach(meta => {
+        if (meta.getAttribute('data-shadowban-marked')) return;
+
+        const content = (meta.getAttribute('content') || '').toLowerCase();
+        if (content.includes('noindex')) {
+          meta.setAttribute('data-shadowban-marked', 'true');
+
+          let container = meta.closest('article, .card, .feed__row, [data-testid="card"]');
+
+          if (container && !container.querySelector('.dzen-shadowban-warning')) {
+            container.style.border = "3px solid red";
+            const warning = document.createElement('div');
+            warning.className = 'dzen-shadowban-warning';
+            warning.textContent = 'ТЕНЕВОЙ БАН (noindex)';
+            warning.style.cssText = 'background: red; color: white; padding: 10px; font-weight: bold; text-align: center; position: sticky; top: 0; z-index: 9999; width: 100%;';
+            container.prepend(warning);
+          } else if (!document.getElementById('dzen-global-shadowban-warning')) {
+             // If it's a global meta tag in head, show a fixed banner instead of wrapping the body
+             const banner = document.createElement('div');
+             banner.id = 'dzen-global-shadowban-warning';
+             banner.textContent = 'ТЕНЕВОЙ БАН (Страница содержит noindex)';
+             banner.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; background: red; color: white; padding: 15px; font-weight: bold; text-align: center; z-index: 10000; font-size: 16px;';
+             document.body.prepend(banner);
+          }
         }
-      }
+      });
     });
-  }, 1000); // Throttle checks
+  }, 1000);
 }
 
 // SEO Tool (Tag Extractor)
