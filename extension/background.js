@@ -1,3 +1,13 @@
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "abTest") {
+    chrome.tabs.query({ url: "https://dzen.ru/profile/editor/*" }, (tabs) => {
+      tabs.forEach((tab) => {
+        chrome.tabs.sendMessage(tab.id, { action: "swapABTestTitle" });
+      });
+    });
+  }
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FETCH_CHANNEL_STATS') {
     handleFetchChannelStats(message.channelId)
@@ -17,7 +27,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch(error => sendResponse({ status: 'error', error: error.message }));
     return true;
   }
+  if (message.action === 'startBulkReplace') {
+    handleBulkReplace(message.data);
+    return true;
+  }
 });
+
+async function handleBulkReplace(data) {
+  const { urls, oldText, newText } = data;
+  if (!urls || urls.length === 0) return;
+
+  for (const url of urls) {
+    if (!url.trim()) continue;
+
+    // Create tab
+    const tab = await new Promise((resolve) => {
+      chrome.tabs.create({ url: url.trim(), active: false }, (newTab) => {
+        resolve(newTab);
+      });
+    });
+
+    // Wait a bit for the page to load
+    await new Promise(r => setTimeout(r, 5000));
+
+    // Send replace message
+    chrome.tabs.sendMessage(tab.id, {
+      action: "doBulkReplace",
+      data: { oldText, newText }
+    });
+
+    // Wait for the action to complete
+    await new Promise(r => setTimeout(r, 3000));
+
+    // Close the tab
+    chrome.tabs.remove(tab.id);
+  }
+}
 
 async function handleFetchChannelStats(channelId) {
   const cacheKey = `channel_${channelId}`;

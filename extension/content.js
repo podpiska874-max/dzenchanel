@@ -1,5 +1,50 @@
-const observer = new MutationObserver(() => scanFeedCards());
+const observer = new MutationObserver(() => {
+  scanFeedCards();
+  checkShadowban();
+});
 observer.observe(document.body, { childList: true, subtree: true });
+
+// Run SEO Tool on page load
+extractSEOTags();
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'swapABTestTitle') {
+    chrome.storage.local.get(['ab_title1', 'ab_title2'], (res) => {
+      const input = document.querySelector('textarea[placeholder*="Заголовок"]') || document.querySelector('.editor-title-input');
+      if (input) {
+        // Swap title logic
+        const currentTitle = input.value || input.textContent;
+        const newTitle = (currentTitle === res.ab_title1) ? res.ab_title2 : res.ab_title1;
+
+        if (newTitle) {
+          input.value = newTitle;
+          input.textContent = newTitle;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+
+          setTimeout(() => {
+             const saveBtn = document.querySelector('button[aria-label="Сохранить"]') || document.querySelector('.editor-save-button');
+             if (saveBtn) saveBtn.click();
+          }, 500);
+        }
+      }
+    });
+  }
+
+  if (message.action === 'doBulkReplace') {
+    const { oldText, newText } = message.data;
+    const editor = document.querySelector('[contenteditable="true"]') || document.querySelector('.editor-content');
+    if (editor) {
+       editor.innerHTML = editor.innerHTML.split(oldText).join(newText);
+       editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+       setTimeout(() => {
+          const saveBtn = document.querySelector('button[aria-label="Сохранить"]') || document.querySelector('.editor-save-button');
+          if (saveBtn) saveBtn.click();
+       }, 1000);
+    }
+  }
+});
+
 
 // Avoid triggering multiple scans quickly
 let scanTimeout;
@@ -43,6 +88,9 @@ function scanFeedCards() {
 
       // Mark card as processed to prevent infinite loops
       card.setAttribute('data-viral-processed', 'true');
+
+      // PRODZEN Analytics: Calculate ER and append
+      calculateAndAppendER(card);
 
       // Insert loading state
       const panel = createBasePanel();
@@ -150,4 +198,182 @@ function renderNotFoundPanel(panel, channelId) {
       }
     );
   });
+}
+
+// ERID Control
+document.addEventListener('click', (e) => {
+  // Try to identify the publish button by class or text content
+  const target = e.target;
+  const isPublishBtn = target.closest('button') &&
+                       (target.closest('button').textContent.toLowerCase().includes('опубликовать') ||
+                        target.closest('button').classList.contains('editor-publish-button')); // Example classes
+
+  if (isPublishBtn) {
+    chrome.storage.local.get(['protection_erid'], (res) => {
+      if (res.protection_erid === false) return;
+
+      // Find the editor content
+      const editor = document.querySelector('[contenteditable="true"]') || document.querySelector('.editor-content');
+      if (editor) {
+        const editorText = editor.textContent;
+        const eridRegex = /erid:\s*[a-zA-Z0-9]{4,}/i;
+        if (!eridRegex.test(editorText)) {
+          e.preventDefault();
+          e.stopPropagation();
+          alert('Ошибка: Отсутствует токен ERID!');
+        }
+      }
+    });
+  }
+}, true); // Use capture phase to intercept before actual publish handlers
+
+
+// PRODZEN Analytics (Calculate ER)
+function calculateAndAppendER(card) {
+  // Logic to extract views and likes from the card.
+  // Selectors might need adjustment based on Dzen's actual layout.
+  // Using pseudo-selectors for demonstration purposes.
+  const viewsElement = card.querySelector('.views-count') || card.querySelector('[aria-label*="просмотр"]');
+  const likesElement = card.querySelector('.likes-count') || card.querySelector('[aria-label*="лайк"]');
+
+  if (viewsElement && likesElement) {
+    const parseNumber = (text) => {
+      if (!text) return 0;
+      let numStr = text.replace(/[^0-9,.]/g, '').replace(',', '.');
+      let multiplier = 1;
+      if (text.includes('K') || text.includes('тыс')) multiplier = 1000;
+      if (text.includes('M') || text.includes('млн')) multiplier = 1000000;
+      return parseFloat(numStr) * multiplier;
+    };
+
+    const views = parseNumber(viewsElement.textContent || viewsElement.getAttribute('aria-label'));
+    const likes = parseNumber(likesElement.textContent || likesElement.getAttribute('aria-label'));
+
+    if (views > 0) {
+      const er = ((likes / views) * 100).toFixed(1);
+
+      const erSpan = document.createElement('span');
+      erSpan.textContent = `ER: ${er}%`;
+      erSpan.style.cssText = 'position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; z-index: 10;';
+
+      // Try to append over preview cover
+      const cover = card.querySelector('img') || card;
+      if (cover.parentElement) {
+         cover.parentElement.style.position = 'relative';
+         cover.parentElement.appendChild(erSpan);
+      } else {
+         card.appendChild(erSpan);
+      }
+    }
+  }
+}
+
+// Shadowban Detector (noindex)
+let shadowbanTimeout;
+function checkShadowban() {
+  if (shadowbanTimeout) clearTimeout(shadowbanTimeout);
+  shadowbanTimeout = setTimeout(() => {
+    chrome.storage.local.get(['protection_noindex'], (res) => {
+      if (res.protection_noindex === false) return; // Enabled by default if not set
+
+      const noindexMeta = document.querySelector('meta[name="robots"][content="noindex"]');
+      if (noindexMeta && !document.getElementById('dzen-shadowban-warning')) {
+        // Try to find a logical container. On studio pages, maybe there's a card or we just append to body
+        let container = noindexMeta.closest('article') || noindexMeta.closest('.card') || document.body;
+        if (container) {
+          container.style.border = "3px solid red";
+          const warning = document.createElement('div');
+          warning.id = 'dzen-shadowban-warning';
+          warning.textContent = 'ТЕНЕВОЙ БАН (noindex)';
+          warning.style.cssText = 'background: red; color: white; padding: 10px; font-weight: bold; text-align: center; position: sticky; top: 0; z-index: 9999; width: 100%;';
+          container.prepend(warning);
+        }
+      }
+    });
+  }, 1000); // Throttle checks
+}
+
+// SEO Tool (Tag Extractor)
+function extractSEOTags() {
+  // Only run on public article pages, assuming they don't have /profile/editor/ in URL
+  if (window.location.href.includes('/profile/editor/')) return;
+
+  setTimeout(() => {
+    let tags = [];
+
+    // Try to get from meta keywords
+    const metaKeywords = document.querySelector('meta[name="keywords"]');
+    if (metaKeywords && metaKeywords.content) {
+      tags = metaKeywords.content.split(',').map(t => t.trim()).filter(t => t);
+    }
+
+    // Fallback: try parsing application/json scripts for tags
+    if (tags.length === 0) {
+      const scripts = document.querySelectorAll('script[type="application/json"]');
+      scripts.forEach(script => {
+        try {
+          const data = JSON.parse(script.textContent);
+          // Recursively search for 'tags' array in JSON
+          const findTags = (obj) => {
+             if (!obj || typeof obj !== 'object') return [];
+             if (Array.isArray(obj.tags)) return obj.tags;
+             for (let key in obj) {
+               const res = findTags(obj[key]);
+               if (res.length > 0) return res;
+             }
+             return [];
+          };
+          const foundTags = findTags(data);
+          if (foundTags.length > 0) {
+            // Assume the tags might be strings or objects with a name property
+            tags = foundTags.map(t => typeof t === 'string' ? t : (t.name || t.text)).filter(Boolean);
+          }
+        } catch (e) {
+          // ignore parsing errors
+        }
+      });
+    }
+
+    if (tags.length > 0) {
+      showSEOPanel(tags);
+    }
+  }, 2000); // Wait a bit for page to render
+}
+
+function showSEOPanel(tags) {
+  if (document.getElementById('dzen-seo-panel')) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'dzen-seo-panel';
+  panel.style.cssText = 'position: fixed; bottom: 20px; right: 20px; width: 300px; background: #1c1c1e; color: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 10000; font-family: sans-serif; border: 1px solid #333;';
+
+  const title = document.createElement('h4');
+  title.textContent = 'SEO Теги';
+  title.style.margin = '0 0 10px 0';
+  title.style.color = '#a855f7';
+  panel.appendChild(title);
+
+  const tagsContainer = document.createElement('div');
+  tagsContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; max-height: 100px; overflow-y: auto;';
+
+  tags.forEach(tag => {
+    const t = document.createElement('span');
+    t.textContent = tag;
+    t.style.cssText = 'background: #374151; padding: 3px 8px; border-radius: 12px; font-size: 12px;';
+    tagsContainer.appendChild(t);
+  });
+  panel.appendChild(tagsContainer);
+
+  const copyBtn = document.createElement('button');
+  copyBtn.textContent = 'Скопировать всё';
+  copyBtn.style.cssText = 'width: 100%; padding: 8px; background: #9333ea; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;';
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(tags.join(', ')).then(() => {
+      copyBtn.textContent = 'Скопировано!';
+      setTimeout(() => copyBtn.textContent = 'Скопировать всё', 2000);
+    });
+  };
+  panel.appendChild(copyBtn);
+
+  document.body.appendChild(panel);
 }
