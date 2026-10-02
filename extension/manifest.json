@@ -3,7 +3,7 @@
   "name": "Dzen Viral Analytics",
   "version": "1.0.0",
   "description": "Анализ виральности статей и динамики роста каналов Яндекс Дзен",
-  "permissions": ["storage"],
+  "permissions": ["storage", "alarms", "scripting"],
   "host_permissions": [
     "https://dzen.ru/*",
     "http://localhost:3000/*"
@@ -13,7 +13,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://dzen.ru/*"],
+      "matches": [
+        "https://dzen.ru/*",
+        "https://dzen.ru/profile/editor/*"
+      ],
       "js": ["content.js"],
       "css": ["styles.css"],
       "run_at": "document_idle"
